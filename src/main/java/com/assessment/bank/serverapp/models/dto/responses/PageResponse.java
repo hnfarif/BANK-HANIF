@@ -15,5 +15,4 @@ public class PageResponse<T> {
     private long totalItems;
     private long totalCurrentItems;
     private int pageSize;
-    private Sort sort;
 }
