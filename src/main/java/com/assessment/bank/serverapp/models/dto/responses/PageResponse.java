@@ -2,7 +2,6 @@ package com.assessment.bank.serverapp.models.dto.responses;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
