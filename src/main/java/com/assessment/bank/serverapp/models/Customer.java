@@ -13,7 +13,7 @@ import java.util.Date;
 public class Customer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
     private Integer id;
 
     @Column(nullable = false, length = 100)
@@ -33,4 +33,9 @@ public class Customer {
 
     @Column(nullable = true, length = 14)
     private String phoneNumber;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @MapsId
+    @JoinColumn(name = "user_id")
+    private User user;
 }

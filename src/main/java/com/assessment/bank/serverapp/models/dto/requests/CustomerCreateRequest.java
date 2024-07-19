@@ -33,4 +33,11 @@ public class CustomerCreateRequest {
     @Size(max = 14, message = "Phone Number must be 14 characters or fewer!")
     private String phoneNumber;
 
+    @NotBlank(message = "Username cannot be blank!")
+    @Size(min = 3, message = "Username at least 3 character")
+    private String username;
+
+    @NotBlank(message = "password cannot be blank")
+    @Size(min = 8, message = "Password at least 8 character")
+    private String password;
 }
