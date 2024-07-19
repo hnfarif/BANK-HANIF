@@ -1,19 +1,21 @@
 package com.assessment.bank.serverapp.services;
 
 import com.assessment.bank.serverapp.models.Customer;
+import com.assessment.bank.serverapp.models.User;
 import com.assessment.bank.serverapp.models.dto.requests.CustomerCreateRequest;
 import com.assessment.bank.serverapp.models.dto.requests.CustomerUpdateRequest;
 import com.assessment.bank.serverapp.models.dto.responses.PageResponse;
 import com.assessment.bank.serverapp.repositories.CustomerRepository;
-import com.assessment.bank.serverapp.validators.UniqueValidator;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -26,7 +28,9 @@ import java.util.function.Consumer;
 public class CustomerService {
 
     private CustomerRepository customerRepository;
-    private static final Logger logger = LogManager.getLogger(UniqueValidator.class);
+    private static final Logger logger = LogManager.getLogger(CustomerService.class);
+    private ModelMapper modelMapper;
+    private PasswordEncoder passwordEncoder;
 
     public PageResponse<Customer> getAll(int pageNo, int pageSize) {
         try {
@@ -39,8 +43,7 @@ public class CustomerService {
                     customers.getTotalPages(),
                     customers.getTotalElements(),
                     customers.getNumberOfElements(),
-                    customers.getSize(),
-                    customers.getSort()
+                    customers.getSize()
             );
         }catch (Exception e){
             logger.error("Customer Service - getAll : {}", e.getMessage());
@@ -59,8 +62,7 @@ public class CustomerService {
                     customers.getTotalPages(),
                     customers.getTotalElements(),
                     customers.getNumberOfElements(),
-                    customers.getSize(),
-                    customers.getSort()
+                    customers.getSize()
             );
         }catch (Exception e){
             logger.info("Customer Service - searchByFullName : {}", e.getMessage());
@@ -70,19 +72,19 @@ public class CustomerService {
 
     public Customer create(CustomerCreateRequest customerCreateRequest) {
 
-        Customer customer = new Customer();
-
         try {
-            customer.setFullName(customerCreateRequest.getFullName());
-            customer.setAddress(customerCreateRequest.getAddress());
-            customer.setPlaceOfBirth(customerCreateRequest.getPlaceOfBirth());
-            customer.setIdentificationNumber(customerCreateRequest.getIdentificationNumber());
+            Customer customer = modelMapper.map(customerCreateRequest, Customer.class);
+            User user = modelMapper.map(customerCreateRequest, User.class);
+
+            user.setPassword(passwordEncoder.encode(customerCreateRequest.getPassword()));
 
             SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
             if (customerCreateRequest.getDateOfBirth() != null && !customerCreateRequest.getDateOfBirth().isBlank())
                 customer.setDateOfBirth(formatter.parse(customerCreateRequest.getDateOfBirth()));
 
             updateFieldIfNotNullOrBlank(customer::setPhoneNumber, customerCreateRequest.getPhoneNumber());
+            customer.setUser(user);
+            user.setCustomer(customer);
             customerRepository.save(customer);
 
             logger.info("Customer Service - Create : Success!");
@@ -106,7 +108,7 @@ public class CustomerService {
     public Customer update(String identificationNumber, CustomerUpdateRequest customerRequest) {
 
         Customer customer = getByIdentificationNumber(identificationNumber);
-
+        User user = customer.getUser();
         try {
             updateFieldIfNotNullOrBlank(customer::setFullName, customerRequest.getFullName());
             updateFieldIfNotNullOrBlank(customer::setAddress, customerRequest.getAddress());
@@ -118,6 +120,11 @@ public class CustomerService {
                 customer.setDateOfBirth(formatter.parse(customerRequest.getDateOfBirth()));
 
             updateFieldIfNotNullOrBlank(customer::setPhoneNumber, customerRequest.getPhoneNumber());
+            updateFieldIfNotNullOrBlank(user::setUsername, customerRequest.getUsername());
+
+            if (customerRequest.getPassword() != null && !customerRequest.getPassword().isBlank())
+                user.setPassword(passwordEncoder.encode(customerRequest.getPassword()));
+
             customerRepository.save(customer);
             logger.info("Customer Service - update : Success!");
             return customer;
@@ -125,7 +132,6 @@ public class CustomerService {
             logger.error("Customer Service - update : {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
-
     }
 
     public Customer delete(String identificationNumber) {

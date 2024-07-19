@@ -1,5 +1,6 @@
 package com.assessment.bank.serverapp.models.dto.requests;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -24,4 +25,10 @@ public class CustomerUpdateRequest {
 
     @Size(max = 14, message = "Phone Number must be 14 characters or fewer!")
     private String phoneNumber;
+
+    @Size(min = 3, message = "Username at least 3 character")
+    private String username;
+
+    @Size(min = 8, message = "Password at least 8 character")
+    private String password;
 }
