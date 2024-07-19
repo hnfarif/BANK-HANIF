@@ -9,35 +9,28 @@ import java.util.Date;
 
 @Entity
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Table(name = "customers")
 public class Customer {
 
     @Id
-    @Column(name = "user_id")
-    private Integer userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 100)
     private String fullName;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 100)
     private String address;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 60)
     private String placeOfBirth;
 
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 16, unique = true)
     private String identificationNumber;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Date dateOfBirth;
 
-    @Column(nullable = false, length = 14)
+    @Column(nullable = true, length = 14)
     private String phoneNumber;
-
-    @OneToOne(cascade = CascadeType.ALL)
-    @MapsId
-    @JoinColumn(name = "user_id")
-    private User user;
 }

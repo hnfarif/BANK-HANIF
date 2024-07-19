@@ -1,0 +1,34 @@
+version: '3.8'
+
+networks:
+  spring-boot-mysql-network:
+    driver: bridge
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: always
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_ass_bank
+    ports:
+      - "3307:3306"
+    networks:
+      - spring-boot-mysql-network
+
+  springboot:
+    image: hnfarif/bank-hanif
+    restart: always
+    container_name: spring-boot-container
+    depends_on:
+      - mysql
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-container:3306/db_ass_bank
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_JPA_DATABASE: mysql
+    ports:
+      - "9000:9000"
+    networks:
+      - spring-boot-mysql-network

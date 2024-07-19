@@ -1,20 +1,24 @@
 package com.assessment.bank.serverapp.services;
 
 import com.assessment.bank.serverapp.models.Customer;
+import com.assessment.bank.serverapp.models.dto.requests.CustomerCreateRequest;
 import com.assessment.bank.serverapp.models.dto.requests.CustomerUpdateRequest;
+import com.assessment.bank.serverapp.models.dto.responses.PageResponse;
 import com.assessment.bank.serverapp.repositories.CustomerRepository;
+import com.assessment.bank.serverapp.validators.UniqueValidator;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import org.springframework.format.datetime.DateFormatter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.function.Consumer;
 
 @Service
 @AllArgsConstructor
@@ -22,42 +26,125 @@ import java.util.List;
 public class CustomerService {
 
     private CustomerRepository customerRepository;
+    private static final Logger logger = LogManager.getLogger(UniqueValidator.class);
 
-    public List<Customer> getAll() {
-        return customerRepository.findAll();
-    }
-
-    public Customer getByidentificationNumber(String identificationNumber) {
-        return customerRepository.findByIdentificationNumber(identificationNumber)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nasabah Tidak Ditemukan!"));
-    }
-
-    public Customer getById(Integer id){
-        return customerRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer Tidak Ditemukan!"));
-    }
-
-    public Customer update(String identificationNumber, CustomerUpdateRequest customerUpdateRequest) throws ParseException {
-
+    public PageResponse<Customer> getAll(int pageNo, int pageSize) {
         try {
-            Customer customer = getByidentificationNumber(identificationNumber);
-            customer.setIdentificationNumber(identificationNumber);
-            customer.setFullName(customerUpdateRequest.getFullName());
-            customer.setAddress(customerUpdateRequest.getAddress());
-            customer.setPlaceOfBirth(customerUpdateRequest.getPlaceOfBirth());
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-            customer.setDateOfBirth(formatter.parse(customerUpdateRequest.getDateOfBirth()));
-            customer.setPhoneNumber(customerUpdateRequest.getPhoneNumber());
-
-            return customerRepository.save(customer);
-        } catch (Exception e){
-            throw new RuntimeException(e);
+            Pageable pageable = PageRequest.of(pageNo, pageSize);
+            Page<Customer> customers = customerRepository.findAll(pageable);
+            logger.info("Customer Service - getAll : Success!");
+            return new PageResponse<>(
+                    customers.getContent(),
+                    customers.getNumber() + 1,
+                    customers.getTotalPages(),
+                    customers.getTotalElements(),
+                    customers.getNumberOfElements(),
+                    customers.getSize(),
+                    customers.getSort()
+            );
+        }catch (Exception e){
+            logger.error("Customer Service - getAll : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
-    public Customer delete(Integer id) {
-        Customer customer = getById(id);
-        customerRepository.delete(customer);
+    public PageResponse<Customer> searchByFullName(String name, int pageNo, int pageSize) {
+        try {
+            Pageable pageable = PageRequest.of(pageNo, pageSize);
+            Page<Customer> customers = customerRepository.findByFullNameContainingIgnoreCase(name, pageable);
+            logger.info("Customer Service - searchByFullName : Success!");
+            return new PageResponse<>(
+                    customers.getContent(),
+                    customers.getNumber() + 1,
+                    customers.getTotalPages(),
+                    customers.getTotalElements(),
+                    customers.getNumberOfElements(),
+                    customers.getSize(),
+                    customers.getSort()
+            );
+        }catch (Exception e){
+            logger.info("Customer Service - searchByFullName : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    public Customer create(CustomerCreateRequest customerCreateRequest) {
+
+        Customer customer = new Customer();
+
+        try {
+            customer.setFullName(customerCreateRequest.getFullName());
+            customer.setAddress(customerCreateRequest.getAddress());
+            customer.setPlaceOfBirth(customerCreateRequest.getPlaceOfBirth());
+            customer.setIdentificationNumber(customerCreateRequest.getIdentificationNumber());
+
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+            if (customerCreateRequest.getDateOfBirth() != null && !customerCreateRequest.getDateOfBirth().isBlank())
+                customer.setDateOfBirth(formatter.parse(customerCreateRequest.getDateOfBirth()));
+
+            updateFieldIfNotNullOrBlank(customer::setPhoneNumber, customerCreateRequest.getPhoneNumber());
+            customerRepository.save(customer);
+
+            logger.info("Customer Service - Create : Success!");
+            return customer;
+        }catch (Exception e){
+            logger.error("Customer Service - Create : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    public Customer getByIdentificationNumber(String identificationNumber) {
+        Customer customer = customerRepository.findByIdentificationNumber(identificationNumber)
+                .orElseThrow(() -> {
+                    logger.error("Customer Service - getByIdentificationNumber : Customer Not Found!");
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer Not Found!");
+                });
+        logger.info("Customer Service - getByIdentificationNumber : Success!");
         return customer;
+    }
+
+    public Customer update(String identificationNumber, CustomerUpdateRequest customerRequest) {
+
+        Customer customer = getByIdentificationNumber(identificationNumber);
+
+        try {
+            updateFieldIfNotNullOrBlank(customer::setFullName, customerRequest.getFullName());
+            updateFieldIfNotNullOrBlank(customer::setAddress, customerRequest.getAddress());
+            updateFieldIfNotNullOrBlank(customer::setIdentificationNumber, customerRequest.getIdentificationNumber());
+            updateFieldIfNotNullOrBlank(customer::setPlaceOfBirth, customerRequest.getPlaceOfBirth());
+
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+            if (customerRequest.getDateOfBirth() != null && !customerRequest.getDateOfBirth().isBlank())
+                customer.setDateOfBirth(formatter.parse(customerRequest.getDateOfBirth()));
+
+            updateFieldIfNotNullOrBlank(customer::setPhoneNumber, customerRequest.getPhoneNumber());
+            customerRepository.save(customer);
+            logger.info("Customer Service - update : Success!");
+            return customer;
+        } catch (Exception e){
+            logger.error("Customer Service - update : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+
+    }
+
+    public Customer delete(String identificationNumber) {
+
+        Customer customer = getByIdentificationNumber(identificationNumber);
+        try {
+            customerRepository.delete(customer);
+            logger.info("Customer Service - delete : Success!");
+            return customer;
+        }catch (Exception e){
+            logger.error("Customer Service - delete : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    private void updateFieldIfNotNullOrBlank(Consumer<String> setter, String value) {
+        if (value != null && !value.isBlank()) {
+            setter.accept(value);
+        }
     }
 
 }
